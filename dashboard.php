@@ -12,6 +12,89 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+$message = "";
+
+/* CREATE SETTINGS TABLE IF NOT EXISTS */
+$createSettingsTable = "
+CREATE TABLE IF NOT EXISTS system_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    school_name VARCHAR(255) NOT NULL,
+    sms_notification VARCHAR(20) NOT NULL DEFAULT 'Enabled',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)";
+$conn->query($createSettingsTable);
+
+/* INSERT DEFAULT SETTINGS IF TABLE IS EMPTY */
+$checkSettings = $conn->query("SELECT COUNT(*) AS total FROM system_settings");
+if ($checkSettings) {
+    $row = $checkSettings->fetch_assoc();
+    if ((int)$row['total'] === 0) {
+        $defaultSchool = "Jaen National High School";
+        $defaultSms = "Enabled";
+
+        $stmt = $conn->prepare("INSERT INTO system_settings (school_name, sms_notification) VALUES (?, ?)");
+        $stmt->bind_param("ss", $defaultSchool, $defaultSms);
+        $stmt->execute();
+        $stmt->close();
+    }
+}
+
+/* LOAD SAVED SETTINGS */
+$schoolName = "Jaen National High School";
+$smsNotification = "Enabled";
+$settingsId = 1;
+
+$settingsResult = $conn->query("SELECT * FROM system_settings ORDER BY id ASC LIMIT 1");
+if ($settingsResult && $settingsResult->num_rows > 0) {
+    $settingsData = $settingsResult->fetch_assoc();
+    $settingsId = (int)$settingsData['id'];
+    $schoolName = $settingsData['school_name'];
+    $smsNotification = $settingsData['sms_notification'];
+}
+
+/* HANDLE SAVE SETTINGS */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
+    $school_name = trim($_POST['school_name'] ?? '');
+    $sms_notification = trim($_POST['sms_notification'] ?? 'Enabled');
+
+    if ($school_name === "") {
+        $school_name = "Jaen National High School";
+    }
+
+    if ($sms_notification !== "Enabled" && $sms_notification !== "Disabled") {
+        $sms_notification = "Enabled";
+    }
+
+    $stmt = $conn->prepare("UPDATE system_settings SET school_name = ?, sms_notification = ? WHERE id = ?");
+    $stmt->bind_param("ssi", $school_name, $sms_notification, $settingsId);
+
+    if ($stmt->execute()) {
+        $_SESSION['settings_saved'] = true;
+        header("Location: dashboard.php?section=settings");
+        exit();
+    } else {
+        $message = "Failed to save settings.";
+    }
+
+    $stmt->close();
+}
+
+/* RELOAD SETTINGS AFTER SAVE/REDIRECT */
+$settingsResult = $conn->query("SELECT * FROM system_settings ORDER BY id ASC LIMIT 1");
+if ($settingsResult && $settingsResult->num_rows > 0) {
+    $settingsData = $settingsResult->fetch_assoc();
+    $settingsId = (int)$settingsData['id'];
+    $schoolName = $settingsData['school_name'];
+    $smsNotification = $settingsData['sms_notification'];
+}
+
+/* ONE-TIME ALERT FLAG */
+$showSavedAlert = false;
+if (isset($_SESSION['settings_saved']) && $_SESSION['settings_saved'] === true) {
+    $showSavedAlert = true;
+    unset($_SESSION['settings_saved']);
+}
+
 /* SAFE FETCH FUNCTION */
 function getCount($conn, $sql) {
     $result = $conn->query($sql);
@@ -56,10 +139,7 @@ function downloadReport($conn, $type) {
 
     $output = fopen('php://output', 'w');
 
-    // UTF-8 BOM for Excel
     fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
-
-    // CSV headers
     fputcsv($output, ['Student Name', 'Time In', 'Time Out', 'Present', 'Absent', 'Late']);
 
     while ($row = $result->fetch_assoc()) {
@@ -103,14 +183,15 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
     <div class="sidebar">
         <div class="sidebar-logo">
             <img src="bg3.jpg" alt="School Logo">
-            <h2>Jaen National High School</h2>
+            <h2>Admin Panel</h2>
         </div>
         <ul>
-            <li class="active" onclick="showSection(event,'dashboard')">Dashboard</li>
-            <li onclick="showSection(event,'students')">Students</li>
-            <li onclick="showSection(event,'parent')">Parent Record</li>
-            <li onclick="showSection(event,'reports')">Reports</li>
-            <li onclick="showSection(event,'settings')">Settings</li>
+            <li class="active" data-section="dashboard" onclick="showSection(event,'dashboard')">Dashboard</li>
+            <li data-section="students" onclick="showSection(event,'students')">Students</li>
+            <li data-section="parent" onclick="showSection(event,'parent')">Parent Record</li>
+            <li data-section="reports" onclick="showSection(event,'reports')">Reports</li>
+            <li data-section="missionvision" onclick="showSection(event,'missionvision')">Mission & Vision</li>
+            <li data-section="settings" onclick="showSection(event,'settings')">Settings</li>
         </ul>
         <a href="logout.php" class="logout-btn">Logout</a>
     </div>
@@ -118,11 +199,22 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
     <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="topbar">
-            <h3>
-                Integrated RFID and SMS Tracking System for Student Attendance
-                <br>Welcome, <?php echo htmlspecialchars($_SESSION['user']); ?>
-            </h3>
+            <div class="topbar-left">
+                <h1><?php echo htmlspecialchars($schoolName); ?></h1>
+                <p>Integrated RFID and SMS Tracking System for Student Attendance Monitoring</p>
+            </div>
+
+            <div class="topbar-right">
+                <span class="welcome-label">Welcome</span>
+                <div class="welcome-user"><?php echo htmlspecialchars($_SESSION['user']); ?></div>
+            </div>
         </div>
+
+        <?php if ($message !== ""): ?>
+            <div style="background:#fee2e2;color:#991b1b;padding:12px 15px;margin-bottom:15px;border-radius:10px;font-weight:600;">
+                <?php echo htmlspecialchars($message); ?>
+            </div>
+        <?php endif; ?>
 
         <!-- DASHBOARD -->
         <div id="dashboard" class="section">
@@ -147,7 +239,7 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
 
             <div class="content-row">
                 <div class="chart-box">
-                    <h4>Attendance Overview</h4>
+                    <h4>Student Attendance Analytics</h4>
                     <canvas id="attendanceChart"></canvas>
                 </div>
                 <div class="progress-box">
@@ -206,7 +298,6 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
                         <th>Address</th>
                     </tr>
                     <?php
-                    // Assumption: sa parents table, ang student field ay student_name
                     $parentResult = $conn->query("SELECT `student_name`, parent_name, contact_number, address FROM parents ORDER BY id DESC");
                     if ($parentResult && $parentResult->num_rows > 0) {
                         while ($row = $parentResult->fetch_assoc()) {
@@ -241,18 +332,84 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
             </div>
         </div>
 
+        <!-- MISSION AND VISION -->
+        <div id="missionvision" class="section" style="display:none">
+            <div class="mv-section-box">
+                <div class="mv-content">
+                    <div class="mv-grid">
+                        <div class="mv-card">
+                            <img src="bg1.jpg" alt="Vision">
+                            <h4>Vision</h4>
+                            <p>
+                                We dream of Filipinos<br>
+                                who passionately love their country<br>
+                                and whose values and competencies<br>
+                                enable them to realize their full potential<br>
+                                and contribute meaningfully to building the nation.
+                                <br><br>
+                                As a learner-centered public institution,<br>
+                                the Department of Education<br>
+                                continuously improves itself<br>
+                                to better serve its stakeholders.
+                            </p>
+                        </div>
+
+                        <div class="mv-card">
+                            <img src="bg4.jpg" alt="Mission">
+                            <h4>Mission</h4>
+                            <p>
+                                To protect and promote the right of every Filipino
+                                to quality, equitable, culture-based, and complete
+                                basic education where:
+                                <br><br>
+                                Students learn in a child-friendly, gender-sensitive,
+                                safe, and motivating environment.
+                                <br><br>
+                                Teachers facilitate learning and constantly nurture every learner.
+                                <br><br>
+                                Administrators and staff, as stewards of the institution,
+                                ensure an enabling and supportive environment for effective learning to happen.
+                                <br><br>
+                                Family, community, and other stakeholders are actively engaged
+                                and share responsibility for developing life-long learners.
+                            </p>
+                        </div>
+
+                        <div class="mv-card">
+                            <img src="bg5.jpg" alt="Core Values">
+                            <h4>Core Values</h4>
+                            <p class="core-values-list">
+                                Maka-Diyos<br>
+                                Maka-tao<br>
+                                Makakalikasan<br>
+                                Makabansa
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mv-footer">
+                        © 2022 by Katrina DL. Pascual (Jaen National High School)
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- SETTINGS -->
         <div id="settings" class="section" style="display:none">
             <div class="chart-box">
                 <h4>System Settings</h4>
-                <label>School Name</label><br>
-                <input type="text" value="Jaen National High School"><br><br>
-                <label>SMS Notification</label><br>
-                <select>
-                    <option>Enabled</option>
-                    <option>Disabled</option>
-                </select><br><br>
-                <button class="login-button">Save Settings</button>
+                <form method="POST">
+                    <label>School Name</label><br>
+                    <input type="text" name="school_name" value="<?php echo htmlspecialchars($schoolName); ?>" required><br><br>
+
+                    <label>SMS Notification</label><br>
+                    <select name="sms_notification">
+                        <option value="Enabled" <?php echo ($smsNotification === 'Enabled') ? 'selected' : ''; ?>>Enabled</option>
+                        <option value="Disabled" <?php echo ($smsNotification === 'Disabled') ? 'selected' : ''; ?>>Disabled</option>
+                    </select><br><br>
+
+                    <button type="submit" name="save_settings" class="login-button">Save Settings</button>
+                </form>
             </div>
         </div>
 
@@ -260,13 +417,41 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
 </div>
 
 <script>
-function showSection(event, sectionId) {
-    document.querySelectorAll('.section').forEach(sec => sec.style.display = 'none');
-    document.getElementById(sectionId).style.display = 'block';
-    document.querySelectorAll('.sidebar ul li').forEach(li => li.classList.remove('active'));
-    event.target.classList.add('active');
+function openSection(sectionId) {
+    document.querySelectorAll('.section').forEach(function(sec) {
+        sec.style.display = 'none';
+    });
+
+    const target = document.getElementById(sectionId);
+    if (target) {
+        target.style.display = 'block';
+    }
+
+    document.querySelectorAll('.sidebar ul li').forEach(function(li) {
+        li.classList.remove('active');
+    });
+
+    document.querySelectorAll('.sidebar ul li').forEach(function(li) {
+        if (li.getAttribute('data-section') === sectionId) {
+            li.classList.add('active');
+        }
+    });
 }
 
+function showSection(event, sectionId) {
+    openSection(sectionId);
+}
+
+window.onload = function () {
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get('section') || 'dashboard';
+
+    openSection(section);
+
+    if (<?php echo $showSavedAlert ? 'true' : 'false'; ?>) {
+        alert('Settings saved successfully!');
+    }
+};
 const ctx = document.getElementById('attendanceChart');
 new Chart(ctx, {
     type: 'bar',
