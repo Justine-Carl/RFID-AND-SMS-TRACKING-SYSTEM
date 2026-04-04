@@ -168,32 +168,71 @@ $present  = getCount($conn, "SELECT COUNT(*) as total FROM attendance WHERE `pre
 $absent   = getCount($conn, "SELECT COUNT(*) as total FROM attendance WHERE `absent` = 'Absent' AND DATE(`time in`) = CURDATE()");
 $late     = getCount($conn, "SELECT COUNT(*) as total FROM attendance WHERE `late` = 'Late' AND DATE(`time in`) = CURDATE()");
 $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
+
+/* OPTIONAL EXTRA COUNTS */
+$parentCount = getCount($conn, "SELECT COUNT(*) as total FROM parents");
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RFID Dashboard</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dashboard-page">
+
+<?php if ($showSavedAlert): ?>
+    <div id="settingsAlertOverlay" class="center-alert-overlay">
+        <div class="center-alert-box">
+            <h3>Success</h3>
+            <p>Settings saved successfully!</p>
+        </div>
+    </div>
+<?php endif; ?>
+
 <div class="dashboard-container">
 
     <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="sidebar-logo">
             <img src="bg3.jpg" alt="School Logo">
-            <h2>Admin Panel</h2>
+            <div>
+                <h2>RFID Admin</h2>
+                <small style="color:rgba(255,255,255,0.7);">Attendance System</small>
+            </div>
         </div>
+
+        <div class="menu-title">Main Menu</div>
         <ul>
-            <li class="active" data-section="dashboard" onclick="showSection(event,'dashboard')">Dashboard</li>
-            <li data-section="students" onclick="showSection(event,'students')">Students</li>
-            <li data-section="parent" onclick="showSection(event,'parent')">Parent Record</li>
-            <li data-section="reports" onclick="showSection(event,'reports')">Reports</li>
-            <li data-section="missionvision" onclick="showSection(event,'missionvision')">Mission & Vision</li>
-            <li data-section="settings" onclick="showSection(event,'settings')">Settings</li>
+            <li class="active" data-section="dashboard" onclick="showSection(event,'dashboard')">
+                <i class="fa-solid fa-house"></i> Dashboard
+            </li>
+            <li data-section="students" onclick="showSection(event,'students')">
+                <i class="fa-solid fa-user-graduate"></i> Students
+            </li>
+            <li data-section="parent" onclick="showSection(event,'parent')">
+                <i class="fa-solid fa-users"></i> Parent Record
+            </li>
+            <li data-section="reports" onclick="showSection(event,'reports')">
+                <i class="fa-solid fa-file-lines"></i> Reports
+            </li>
+            <li data-section="missionvision" onclick="showSection(event,'missionvision')">
+                <i class="fa-solid fa-bullseye"></i> Mission & Vision
+            </li>
+            <li data-section="settings" onclick="showSection(event,'settings')">
+                <i class="fa-solid fa-gear"></i> Settings
+            </li>
         </ul>
-        <a href="logout.php" class="logout-btn">Logout</a>
+
+        <a href="logout.php" class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
     </div>
 
     <!-- MAIN CONTENT -->
@@ -205,8 +244,10 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
             </div>
 
             <div class="topbar-right">
-                <span class="welcome-label">Welcome</span>
-                <div class="welcome-user"><?php echo htmlspecialchars($_SESSION['user']); ?></div>
+                <div class="admin-badge">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span>Administrator</span>
+                </div>
             </div>
         </div>
 
@@ -216,188 +257,343 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
             </div>
         <?php endif; ?>
 
-        <!-- DASHBOARD -->
         <div id="dashboard" class="section">
-            <div class="stats-row">
-                <div class="stat-card blue">
-                    <h4>Late Students</h4>
-                    <p><?php echo $late; ?></p>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-title">Total Students Today</div>
+                        <div class="stat-mini-icon"><i class="fa-solid fa-users"></i></div>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-icon-large"><i class="fa-solid fa-user-group"></i></div>
+                        <div class="stat-value"><?php echo $students; ?></div>
+                    </div>
                 </div>
-                <div class="stat-card red">
-                    <h4>Total Absent</h4>
-                    <p><?php echo $absent; ?></p>
+
+                <div class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-title">Present Today</div>
+                        <div class="stat-mini-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    </div>
+                    <div class="stat-body">
+                        <div class="ring" style="--value: <?php echo ($students > 0 ? round(($present / $students) * 100) : 0); ?>%">
+                            <i class="fa-solid fa-user-check"></i>
+                        </div>
+                        <div class="stat-value"><?php echo $present; ?></div>
+                    </div>
                 </div>
-                <div class="stat-card orange">
-                    <h4>Total Present</h4>
-                    <p><?php echo $present; ?></p>
+
+                <div class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-title">Late Today</div>
+                        <div class="stat-mini-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    </div>
+                    <div class="stat-body">
+                        <div class="ring" style="--value: <?php echo ($students > 0 ? round(($late / max($students, 1)) * 100) : 0); ?>%">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div class="stat-value"><?php echo $late; ?></div>
+                    </div>
                 </div>
-                <div class="stat-card green">
-                    <h4>Total Students</h4>
-                    <p><?php echo $students; ?></p>
+
+                <div class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-title">Attendance Percentage</div>
+                        <div class="stat-mini-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                    </div>
+                    <div class="stat-body">
+                        <div class="ring" style="--value: <?php echo $rate; ?>%">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </div>
+                        <div class="stat-value"><?php echo $rate; ?>%</div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-title">Parent Records</div>
+                        <div class="stat-mini-icon"><i class="fa-solid fa-address-book"></i></div>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-icon-large"><i class="fa-solid fa-id-card"></i></div>
+                        <div class="stat-value"><?php echo $parentCount; ?></div>
+                    </div>
                 </div>
             </div>
 
-            <div class="content-row">
-                <div class="chart-box">
-                    <h4>Student Attendance Analytics</h4>
-                    <canvas id="attendanceChart"></canvas>
+            <div class="grid-2">
+                <div class="box">
+                    <div class="box-title">Student Attendance Analytics</div>
+                    <div class="sub-text">Today’s attendance summary based on RFID logs.</div>
+                    <canvas id="attendanceChart" height="110"></canvas>
                 </div>
-                <div class="progress-box">
-                    <h4>Attendance Rate</h4>
-                    <div class="circle" style="background: conic-gradient(#4e73df <?php echo $rate; ?>%, #e5e7eb 0%)">
+
+                <div class="box progress-panel">
+                    <div class="box-title">Attendance Rate</div>
+                    <div class="big-progress">
                         <span><?php echo $rate; ?>%</span>
                     </div>
-                    <p class="progress-label">Monthly Attendance Target</p>
+                    <p>Overall present percentage for today.</p>
+                </div>
+            </div>
+
+            <div class="box">
+                <div class="section-title-row">
+                    <div>
+                        <div class="box-title" style="margin-bottom:4px;">Attendance Records Preview</div>
+                        <div class="sub-text" style="margin:0;">Latest student attendance logs.</div>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Time In</th>
+                                <th>Time Out</th>
+                                <th>Status</th>
+                                <th>Absent</th>
+                                <th>Late</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $previewResult = $conn->query("SELECT `student_name`, `time in`, `time out`, `present`, `absent`, `late`
+                                                           FROM attendance
+                                                           ORDER BY `time in` DESC
+                                                           LIMIT 10");
+
+                            if ($previewResult && $previewResult->num_rows > 0) {
+                                while ($row = $previewResult->fetch_assoc()) {
+                                    $presentText = trim((string)($row['present'] ?? ''));
+                                    $absentText = trim((string)($row['absent'] ?? ''));
+                                    $lateText = trim((string)($row['late'] ?? ''));
+
+                                    echo "<tr>";
+                                    echo "<td>" . htmlspecialchars($row['student_name'] ?? '') . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['time in'] ?? '') . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['time out'] ?? '') . "</td>";
+
+                                    if (strcasecmp($presentText, 'Present') === 0) {
+                                        echo "<td><span class='badge badge-green'>Present</span></td>";
+                                    } else {
+                                        echo "<td><span class='badge badge-red'>Not Marked</span></td>";
+                                    }
+
+                                    if (strcasecmp($absentText, 'Absent') === 0) {
+                                        echo "<td><span class='badge badge-red'>Absent</span></td>";
+                                    } else {
+                                        echo "<td>-</td>";
+                                    }
+
+                                    if (strcasecmp($lateText, 'Late') === 0) {
+                                        echo "<td><span class='badge badge-yellow'>Late</span></td>";
+                                    } else {
+                                        echo "<td>-</td>";
+                                    }
+
+                                    echo "</tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='6'>No attendance records found</td></tr>";
+                            }
+                            ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
         <!-- STUDENTS SECTION -->
         <div id="students" class="section" style="display:none">
-            <div class="chart-box">
-                <h4>Student List</h4>
-                <table width="100%">
-                    <tr>
-                        <th>Name</th>
-                        <th>Time In</th>
-                        <th>Time Out</th>
-                        <th>Present</th>
-                        <th>Absent</th>
-                        <th>Late</th>
-                    </tr>
-                    <?php
-                    $result = $conn->query("SELECT * FROM attendance ORDER BY `time in` DESC");
-                    if ($result && $result->num_rows > 0) {
-                        while ($row = $result->fetch_assoc()) {
-                            echo "<tr>
-                                <td>" . htmlspecialchars($row['student_name'] ?? '') . "</td>
-                                <td>" . htmlspecialchars($row['time in'] ?? '') . "</td>
-                                <td>" . htmlspecialchars($row['time out'] ?? '') . "</td>
-                                <td>" . htmlspecialchars($row['present'] ?? '') . "</td>
-                                <td>" . htmlspecialchars($row['absent'] ?? '') . "</td>
-                                <td>" . htmlspecialchars($row['late'] ?? '') . "</td>
-                            </tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='6'>No data available</td></tr>";
-                    }
-                    ?>
-                </table>
+            <div class="box">
+                <div class="box-title">Student List</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Time In</th>
+                                <th>Time Out</th>
+                                <th>Present</th>
+                                <th>Absent</th>
+                                <th>Late</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $result = $conn->query("SELECT * FROM attendance ORDER BY `time in` DESC");
+                            if ($result && $result->num_rows > 0) {
+                                while ($row = $result->fetch_assoc()) {
+                                    echo "<tr>
+                                        <td>" . htmlspecialchars($row['student_name'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['time in'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['time out'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['present'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['absent'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['late'] ?? '') . "</td>
+                                    </tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='6'>No data available</td></tr>";
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <!-- PARENT RECORD -->
         <div id="parent" class="section" style="display:none">
-            <div class="chart-box">
-                <h4>Parent Records</h4>
-                <table width="100%">
-                    <tr>
-                        <th>Student Name</th>
-                        <th>Parent Name</th>
-                        <th>Contact Number</th>
-                        <th>Address</th>
-                    </tr>
-                    <?php
-                    $parentResult = $conn->query("SELECT `student_name`, parent_name, contact_number, address FROM parents ORDER BY id DESC");
-                    if ($parentResult && $parentResult->num_rows > 0) {
-                        while ($row = $parentResult->fetch_assoc()) {
-                            echo "<tr>
-                                <td>" . htmlspecialchars($row['student_name'] ?? '') . "</td>
-                                <td>" . htmlspecialchars($row['parent_name'] ?? '') . "</td>
-                                <td>" . htmlspecialchars($row['contact_number'] ?? '') . "</td>
-                                <td>" . htmlspecialchars($row['address'] ?? '') . "</td>
-                            </tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='4'>No parent records found</td></tr>";
-                    }
-                    ?>
-                </table>
+            <div class="box">
+                <div class="box-title">Parent Records</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Parent Name</th>
+                                <th>Contact Number</th>
+                                <th>Address</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $parentResult = $conn->query("SELECT `student_name`, parent_name, contact_number, address FROM parents ORDER BY id DESC");
+                            if ($parentResult && $parentResult->num_rows > 0) {
+                                while ($row = $parentResult->fetch_assoc()) {
+                                    echo "<tr>
+                                        <td>" . htmlspecialchars($row['student_name'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['parent_name'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['contact_number'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['address'] ?? '') . "</td>
+                                    </tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='4'>No parent records found</td></tr>";
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <!-- REPORTS -->
         <div id="reports" class="section" style="display:none">
-            <div class="chart-box">
-                <h4>Attendance Reports</h4>
-                <form method="GET" action="">
-                    <input type="hidden" name="download" value="daily">
-                    <button type="submit" class="login-button">Download Daily Report</button>
-                </form>
-                <br>
-                <form method="GET" action="">
-                    <input type="hidden" name="download" value="monthly">
-                    <button type="submit" class="login-button">Download Monthly Report</button>
-                </form>
+            <div class="box">
+                <div class="section-title-row">
+                    <div>
+                        <div class="box-title" style="margin-bottom:4px;">Attendance Records Preview</div>
+                        <div class="sub-text" style="margin:0;">Export daily or monthly attendance reports.</div>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Time In</th>
+                                <th>Time Out</th>
+                                <th>Present</th>
+                                <th>Absent</th>
+                                <th>Late</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $reportResult = $conn->query("SELECT `student_name`, `time in`, `time out`, `present`, `absent`, `late`
+                                                          FROM attendance
+                                                          ORDER BY `time in` DESC");
+
+                            if ($reportResult && $reportResult->num_rows > 0) {
+                                while ($row = $reportResult->fetch_assoc()) {
+                                    echo "<tr>
+                                            <td>" . htmlspecialchars($row['student_name'] ?? '') . "</td>
+                                            <td>" . htmlspecialchars($row['time in'] ?? '') . "</td>
+                                            <td>" . htmlspecialchars($row['time out'] ?? '') . "</td>
+                                            <td>" . htmlspecialchars($row['present'] ?? '') . "</td>
+                                            <td>" . htmlspecialchars($row['absent'] ?? '') . "</td>
+                                            <td>" . htmlspecialchars($row['late'] ?? '') . "</td>
+                                          </tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='6' style='text-align:center;'>No attendance records found</td></tr>";
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <form method="GET" action="">
+                        <input type="hidden" name="download" value="daily">
+                        <button type="submit" class="login-button">
+                            <i class="fa-solid fa-download"></i> Download Daily Report
+                        </button>
+                    </form>
+
+                    <form method="GET" action="">
+                        <input type="hidden" name="download" value="monthly">
+                        <button type="submit" class="login-button">
+                            <i class="fa-solid fa-download"></i> Download Monthly Report
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
 
         <!-- MISSION AND VISION -->
         <div id="missionvision" class="section" style="display:none">
-            <div class="mv-section-box">
-                <div class="mv-content">
-                    <div class="mv-grid">
-                        <div class="mv-card">
-                            <img src="bg1.jpg" alt="Vision">
-                            <h4>Vision</h4>
-                            <p>
-                                We dream of Filipinos<br>
-                                who passionately love their country<br>
-                                and whose values and competencies<br>
-                                enable them to realize their full potential<br>
-                                and contribute meaningfully to building the nation.
-                                <br><br>
-                                As a learner-centered public institution,<br>
-                                the Department of Education<br>
-                                continuously improves itself<br>
-                                to better serve its stakeholders.
-                            </p>
-                        </div>
-
-                        <div class="mv-card">
-                            <img src="bg4.jpg" alt="Mission">
-                            <h4>Mission</h4>
-                            <p>
-                                To protect and promote the right of every Filipino
-                                to quality, equitable, culture-based, and complete
-                                basic education where:
-                                <br><br>
-                                Students learn in a child-friendly, gender-sensitive,
-                                safe, and motivating environment.
-                                <br><br>
-                                Teachers facilitate learning and constantly nurture every learner.
-                                <br><br>
-                                Administrators and staff, as stewards of the institution,
-                                ensure an enabling and supportive environment for effective learning to happen.
-                                <br><br>
-                                Family, community, and other stakeholders are actively engaged
-                                and share responsibility for developing life-long learners.
-                            </p>
-                        </div>
-
-                        <div class="mv-card">
-                            <img src="bg5.jpg" alt="Core Values">
-                            <h4>Core Values</h4>
-                            <p class="core-values-list">
-                                Maka-Diyos<br>
-                                Maka-tao<br>
-                                Makakalikasan<br>
-                                Makabansa
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="mv-footer">
-                        © 2022 by Katrina DL. Pascual (Jaen National High School)
-                    </div>
+            <div class="mv-grid">
+                <div class="mv-card">
+                    <img src="bg1.jpg" alt="Vision">
+                    <h4>Vision</h4>
+                    <p>
+                        We dream of Filipinos who passionately love their country and whose values and competencies
+                        enable them to realize their full potential and contribute meaningfully to building the nation.
+                        <br><br>
+                        As a learner-centered public institution, the Department of Education continuously improves itself
+                        to better serve its stakeholders.
+                    </p>
                 </div>
+
+                <div class="mv-card">
+                    <img src="bg4.jpg" alt="Mission">
+                    <h4>Mission</h4>
+                    <p>
+                        To protect and promote the right of every Filipino to quality, equitable, culture-based,
+                        and complete basic education where students learn in a child-friendly, gender-sensitive,
+                        safe, and motivating environment.
+                        <br><br>
+                        Teachers facilitate learning and constantly nurture every learner.
+                    </p>
+                </div>
+
+                <div class="mv-card">
+                    <img src="bg5.jpg" alt="Core Values">
+                    <h4>Core Values</h4>
+                    <p>
+                        Maka-Diyos<br>
+                        Maka-tao<br>
+                        Makakalikasan<br>
+                        Makabansa
+                    </p>
+                </div>
+            </div>
+
+            <div class="mv-footer">
+                © 2022 by Katrina DL. Pascual (Jaen National High School)
             </div>
         </div>
 
         <!-- SETTINGS -->
         <div id="settings" class="section" style="display:none">
-            <div class="chart-box">
-                <h4>System Settings</h4>
+            <div class="box">
+                <div class="box-title">System Settings</div>
                 <form method="POST">
                     <label>School Name</label><br>
                     <input type="text" name="school_name" value="<?php echo htmlspecialchars($schoolName); ?>" required><br><br>
@@ -408,7 +604,9 @@ $rate     = ($students > 0) ? round(($present / $students) * 100) : 0;
                         <option value="Disabled" <?php echo ($smsNotification === 'Disabled') ? 'selected' : ''; ?>>Disabled</option>
                     </select><br><br>
 
-                    <button type="submit" name="save_settings" class="login-button">Save Settings</button>
+                    <button type="submit" name="save_settings" class="login-button">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Settings
+                    </button>
                 </form>
             </div>
         </div>
@@ -448,29 +646,63 @@ window.onload = function () {
 
     openSection(section);
 
-    if (<?php echo $showSavedAlert ? 'true' : 'false'; ?>) {
-        alert('Settings saved successfully!');
+    const alertOverlay = document.getElementById('settingsAlertOverlay');
+    if (alertOverlay) {
+        setTimeout(() => {
+            alertOverlay.style.transition = "opacity 0.4s ease";
+            alertOverlay.style.opacity = "0";
+            setTimeout(() => {
+                alertOverlay.style.display = "none";
+            }, 400);
+        }, 2000);
+    }
+
+    if (section === 'settings') {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl + '?section=settings');
     }
 };
+
 const ctx = document.getElementById('attendanceChart');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: ['Present', 'Absent', 'Late'],
-        datasets: [{
-            data: [<?php echo $present; ?>, <?php echo $absent; ?>, <?php echo $late; ?>],
-            backgroundColor: ['#4e73df', '#e74a3b', '#f6c23e']
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                display: false
+if (ctx) {
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Present', 'Absent', 'Late'],
+            datasets: [{
+                label: 'Students',
+                data: [<?php echo $present; ?>, <?php echo $absent; ?>, <?php echo $late; ?>],
+                backgroundColor: ['#14b8a6', '#ef4444', '#f59e0b'],
+                borderRadius: 10,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    },
+                    grid: {
+                        color: '#e5e7eb'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
             }
         }
-    }
-});
+    });
+}
 </script>
 
 </body>
